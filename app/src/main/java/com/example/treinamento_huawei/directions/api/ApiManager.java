@@ -2,7 +2,7 @@ package com.example.treinamento_huawei.directions.api;
 
 public class ApiManager {
 
-    private static final String host = "http://192.168.130.171:5000/";
+    private static final String host = "http://192.168.130.215:5000/";
 
     private static final String postUserResource = "users/";
 
@@ -31,6 +31,8 @@ public class ApiManager {
     private static final String firebase = "firebase/";
 
     private static final String localization = "localization/";
+
+    private static final String initialInformations = "initialInformations/";
 
     private static ApiManager instance;
 
@@ -147,6 +149,10 @@ public class ApiManager {
     public String sendLocalization(String lat, String log) {
         return host +
                 localization + lat + "/" + log;
+    }
+
+    public String getQueueValues() {
+        return host + initialInformations;
     }
 
 }

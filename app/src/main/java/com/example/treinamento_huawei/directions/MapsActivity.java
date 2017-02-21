@@ -14,6 +14,7 @@ import android.widget.TextView;
 
 import com.android.volley.DefaultRetryPolicy;
 import com.example.treinamento_huawei.directions.api.GsonPostRequest;
+import com.example.treinamento_huawei.directions.api.GsonRequest;
 import com.example.treinamento_huawei.directions.api.RequestQueueSingleton;
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.api.GoogleApiClient;
@@ -26,9 +27,11 @@ import com.google.android.gms.maps.OnMapReadyCallback;
 import com.google.android.gms.maps.SupportMapFragment;
 import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.MarkerOptions;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonObject;
 
 public class MapsActivity extends FragmentActivity implements OnMapReadyCallback, GoogleApiClient.ConnectionCallbacks,
-        GoogleApiClient.OnConnectionFailedListener {
+        GoogleApiClient.OnConnectionFailedListener, OnGetQueueValues {
 
     private GoogleMap mMap;
 
@@ -54,6 +57,8 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                 callConnection();
             }
         });
+
+        getQueueValues();
 
     }
 
@@ -173,5 +178,21 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         double a = Math.sin(dLat/2) * Math.sin(dLat/2) + Math.cos(Math.toRadians(lat1)) * Math.cos(Math.toRadians(lat2)) * Math.sin(dLon/2) * Math.sin(dLon/2);
         double c = 2 * Math.asin(Math.sqrt(a));
         return 6366000 * c;
+    }
+
+    public double calculaVelocidadeMedia(double deslocamento, double tempoGasto) {
+        return deslocamento/tempoGasto;
+    }
+
+    private void getQueueValues() {
+        GetQueueValues getQueueValues = new GetQueueValues(this);
+        GsonRequest<JsonObject> request = getQueueValues.getValues();
+        request.setRetryPolicy(new DefaultRetryPolicy(0, DefaultRetryPolicy.DEFAULT_MAX_RETRIES, DefaultRetryPolicy.DEFAULT_BACKOFF_MULT));
+        RequestQueueSingleton.getInstance(this).addToRequestQueue(request.setTag("dailyMenu"));
+    }
+
+    @Override
+    public void OnGetQueueValues(JsonObject media) {
+        Log.d("GET_QUEUE_VALUE", media.toString());
     }
 }

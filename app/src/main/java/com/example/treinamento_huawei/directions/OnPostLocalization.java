@@ -5,6 +5,7 @@ package com.example.treinamento_huawei.directions;
  */
 
 public interface OnPostLocalization {
+
     public void onPostlocalizationSucess();
     public void onPostlocalizationError();
 

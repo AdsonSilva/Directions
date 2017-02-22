@@ -144,7 +144,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         PostLocalization postLocalization = new PostLocalization(new OnPostLocalization() {
             @Override
             public void onPostlocalizationSucess() {
-                Log.d("TEST", "test");
+                Log.d("TEST", "testt");
 
             }
 

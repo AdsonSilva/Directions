@@ -32,6 +32,8 @@ public class ApiManager {
 
     private static final String localization = "localization/";
 
+    private static final String speed = "speed/";
+
     private static final String initialInformations = "initialInformations/";
 
     private static ApiManager instance;
@@ -151,8 +153,11 @@ public class ApiManager {
                 localization + lat + "/" + log;
     }
 
+    public String sendSpeed() {
+        return host + speed;
+    }
+
     public String getQueueValues() {
         return host + initialInformations;
     }
-
 }

@@ -2,7 +2,7 @@ package com.example.treinamento_huawei.directions.api;
 
 public class ApiManager {
 
-    private static final String host = "http://192.168.130.215:5000/";
+    private static final String host = "http://192.168.130.171:5000/";
 
     private static final String postUserResource = "users/";
 
@@ -33,6 +33,8 @@ public class ApiManager {
     private static final String localization = "localization/";
 
     private static final String speed = "speed/";
+
+    private static final String forecast = "forecast/";
 
     private static final String initialInformations = "initialInformations/";
 
@@ -155,6 +157,10 @@ public class ApiManager {
 
     public String sendSpeed() {
         return host + speed;
+    }
+
+    public String sendForecast() {
+        return host + forecast;
     }
 
     public String getQueueValues() {

@@ -6,30 +6,29 @@ import com.android.volley.Response;
 import com.android.volley.VolleyError;
 import com.example.treinamento_huawei.directions.api.ApiManager;
 import com.example.treinamento_huawei.directions.api.GsonPostRequest;
-import com.google.gson.JsonObject;
 
 import java.util.Map;
 
 /**
- * Created by huawei on 22/02/17.
+ * Created by huawei on 24/02/17.
  */
 
-public class PostSpeed {
-    private final OnPostSpeed onPostSpeed;
+public class PostForecast {
+    private final OnPostForecast onPostForecast;
 
-    private static final String TAG = "SendLocalization: ";
+    private static final String TAG = "SendForecast: ";
 
-    public PostSpeed(OnPostSpeed onPostSpeed){
-        this.onPostSpeed = onPostSpeed;
+    public PostForecast(OnPostForecast onPostForecast){
+        this.onPostForecast = onPostForecast;
     }
 
     public GsonPostRequest serverRequestString(Map<String, String> params) {
         return new GsonPostRequest<>(
-                ApiManager.getInstance().sendSpeed(),
-                JsonObject.class, params,
-                new Response.Listener<JsonObject>() {
+                ApiManager.getInstance().sendForecast(),
+                Object.class, params,
+                new Response.Listener<Object>() {
                     @Override
-                    public void onResponse(JsonObject response) {
+                    public void onResponse(Object response) {
                         if (response != null) {
                             sendCallback(response);
                         }
@@ -38,13 +37,13 @@ public class PostSpeed {
                 new Response.ErrorListener() {
                     @Override
                     public void onErrorResponse(VolleyError error) {
-                        Log.d(TAG, "errorhttp" + String.valueOf(error.getStackTrace().toString()));
+                        Log.d(TAG, "errorhttp" + String.valueOf(error.getMessage()));
                     }
                 }
         );
     }
 
-    private void sendCallback(JsonObject response) {
-        onPostSpeed.OnPostSpeed(response.get("speed").getAsDouble());
+    private void sendCallback(Object response) {
+        onPostForecast.OnPostForecast(response.toString());
     }
 }

@@ -1,9 +1,14 @@
 package com.example.treinamento_huawei.directions;
 
-import android.*;
 import android.Manifest;
+import android.app.AlarmManager;
+import android.app.PendingIntent;
+import android.content.Context;
+import android.content.Intent;
+import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.location.Location;
+import android.os.Build;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.support.v4.app.ActivityCompat;
@@ -29,15 +34,19 @@ import com.google.android.gms.maps.OnMapReadyCallback;
 import com.google.android.gms.maps.SupportMapFragment;
 import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.MarkerOptions;
-import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 
+import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.Date;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
-public class MapsActivity extends FragmentActivity implements OnMapReadyCallback, GoogleApiClient.ConnectionCallbacks,
-        GoogleApiClient.OnConnectionFailedListener, OnGetQueueValues {
+public class MapsActivity extends FragmentActivity implements OnGetQueueValues {
 
+    private static final int PERMISSION_ALL = 2;
+    private static final String PREFS_NAME = "MapsTest";
     private GoogleMap mMap;
 
     private TextView tvCoordinate;
@@ -46,325 +55,187 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     private Date oldTime;
     private double logEmbdd;
     private double latEmbdd;
-    Location location;
+    Location lastLocation;
     private double latitude;
     private double longitude;
     private double speepServ;
     private double radius;
     private double beginQueueLat;
     private double beginQueueLog;
+    private TextView prevision;
+    private double margin;
+    private ArrayList<Double> insidePoints = new ArrayList<>();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_maps);
-        // Obtain the SupportMapFragment and get notified when the map is ready to be used.
         SupportMapFragment mapFragment = (SupportMapFragment) getSupportFragmentManager()
                 .findFragmentById(R.id.map);
-        mapFragment.getMapAsync(this);
+        MapsActivity.context = getApplicationContext();
 
 
         tvCoordinate = (TextView) findViewById(R.id.tv_coordinate);
+        prevision = (TextView) findViewById(R.id.Previsao);
         Button button = (Button) findViewById(R.id.button);
         button.setOnClickListener(new View.OnClickListener() {
             @Override
-            public void onClick(View view) {
-                calculaPrevisao();
+            public void onClick(View v) {
+                SharedPreferences settings = getSharedPreferences(PREFS_NAME, 0);
+                prevision.setText(settings.getString("location", "oi"));
+
 
             }
         });
 
-        getQueueValues();
+        getLocation();
 
     }
 
-    private void calculaPrevisao() {
+    private static Context context;
 
+    public static Context getAppContext() {
+        return MapsActivity.context;
     }
 
-    public double getLatitude(){
-        if(location != null){
-            latitude = location.getLatitude();
-        }
-
-        // return latitude
-        return latitude;
-    }
-
-    /**
-     * Function to get longitude
-     * */
-    public double getLongitude(){
-        if(location != null){
-            longitude = location.getLongitude();
-        }
-
-        // return longitude
-        return longitude;
-    }
-
-
-
-    private synchronized void callConnection() {
-        mGoogleApiClient = new GoogleApiClient.Builder(this)
-                .addOnConnectionFailedListener(this)
-                .addConnectionCallbacks(this)
-                .addApi(LocationServices.API)
-                .build();
-        mGoogleApiClient.connect();
-    }
-
-
-    /**
-     * Manipulates the map once available.
-     * This callback is triggered when the map is ready to be used.
-     * This is where we can add markers or lines, add listeners or move the camera. In this case,
-     * we just add a marker near Sydney, Australia.
-     * If Google Play services is not installed on the device, the user will be prompted to install
-     * it inside the SupportMapFragment. This method will only be triggered once the user has
-     * installed Google Play services and returned to the app.
-     */
-    @Override
-    public void onMapReady(GoogleMap googleMap) {
-        mMap = googleMap;
-        // Add a marker in Sydney and move the camera
-        callConnection();
-    }
-
-
-    private synchronized void callConnectionOnce() {
-        mGoogleApiClient = new GoogleApiClient.Builder(this)
-                .addOnConnectionFailedListener(new GoogleApiClient.OnConnectionFailedListener() {
-                    @Override
-                    public void onConnectionFailed(ConnectionResult connectionResult) {
-                        Log.i("LOG", "onConnectionFailed(" + connectionResult + ")");
-                    }
-                })
-                .addConnectionCallbacks(new GoogleApiClient.ConnectionCallbacks() {
-                    @Override
-                    public void onConnected(Bundle bundle) {
-                        Log.i("LOG", "onConnected(" + bundle + ")");
-
-                        if (ActivityCompat.checkSelfPermission(getBaseContext(), android.Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(getBaseContext(), android.Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-                            // TODO: Consider calling
-                            //    ActivityCompat#requestPermissions
-                            // here to request the missing permissions, and then overriding
-                            //   public void onRequestPermissionsResult(int requestCode, String[] permissions,
-                            //                                          int[] grantResults)
-                            // to handle the case where the user grants the permission. See the documentation
-                            // for ActivityCompat#requestPermissions for more details.
-                            return;
-                        }
-                        Location l = LocationServices
-                                .FusedLocationApi
-                                .getLastLocation(mGoogleApiClient);
-
-                        location = l;
-
-                        if (l != null) {
-                            Log.i("LOG", "latitude: " + l.getLatitude());
-                            Log.i("LOG", "longitude: " + l.getLongitude());
-                            tvCoordinate.setText(l.getLatitude() + " | " + l.getLongitude());
-                            latitude = l.getLatitude();
-                            longitude = l.getLongitude();
-
-                            updateLocalizationOnRadius(l);
-                        }
-                    }
-
-                    @Override
-                    public void onConnectionSuspended(int i) {
-                        Log.i("LOG", "onConnectionSuspended(" + i + ")");
-                    }
-
-                })
-                .addApi(LocationServices.API)
-                .build();
-        mGoogleApiClient.connect();
-    }
-
-    private void updateLocalizationOnRadius(Location l) {
-        if (distanceDoubleLocation(latEmbdd, logEmbdd, l) < 60) {
-            Log.d("test", "Estou no embdd");
-
-            callConnectionUpdate();
-
-        }
-    }
-
-
-    private synchronized void callConnectionUpdate() {
-        mGoogleApiClient = new GoogleApiClient.Builder(this)
-                .addOnConnectionFailedListener(new GoogleApiClient.OnConnectionFailedListener() {
-                    @Override
-                    public void onConnectionFailed(ConnectionResult connectionResult) {
-                        Log.i("LOG", "onConnectionFailed(" + connectionResult + ")");
-                    }
-                })
-                .addConnectionCallbacks(new GoogleApiClient.ConnectionCallbacks() {
-                    @Override
-                    public void onConnected(Bundle bundle) {
-
-                        Log.i("LOG", "onConnected(" + bundle + ")");
-
-                        LocationRequest mLocationRequest = new LocationRequest();
-                        mLocationRequest.setInterval(3000);
-                        mLocationRequest.setFastestInterval(5000);
-                        mLocationRequest.setPriority(LocationRequest.PRIORITY_HIGH_ACCURACY);
-
-
-                        if (ActivityCompat.checkSelfPermission(getBaseContext(), Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(getBaseContext(), Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-                            // TODO: Consider calling
-                            //    ActivityCompat#requestPermissions
-                            // here to request the missing permissions, and then overriding
-                            //   public void onRequestPermissionsResult(int requestCode, String[] permissions,
-                            //                                          int[] grantResults)
-                            // to handle the case where the user grants the permission. See the documentation
-                            // for ActivityCompat#requestPermissions for more details.
-                            return;
-                        }
-                        LocationServices
-                                .FusedLocationApi
-                                .requestLocationUpdates(mGoogleApiClient, mLocationRequest, new LocationListener() {
-                                    @Override
-                                    public void onLocationChanged(Location l) {
-                                        if (l != null) {
-                                            location = l;
-                                            latitude = l.getLatitude();
-                                            longitude = l.getLongitude();
-
-
-                                            Log.i("LOG", "latitude: " + l.getLatitude());
-                                            Log.i("LOG", "longitude: " + l.getLongitude());
-
-                                            String distance;
-                                            if (oldLoc != null) {
-                                                distance = String.valueOf(distance(oldLoc, l));
-                                            } else {
-                                                distance = "0.0";
-                                            }
-
-                                            Date tempo = new Date();;
-
-                                            Long tempoEntreupdates;
-                                            if (oldTime != null) {
-                                                tempoEntreupdates = tempo.getTime() - oldTime.getTime();
-                                            } else {
-                                                tempoEntreupdates = (long) -1;
-                                            }
-
-
-                                            sendLocalization(l);
-                                            oldTime = tempo;
-                                            oldLoc = l;
-
-
-                                            Log.d("teste", String.valueOf(tempoEntreupdates));
-                                            tvCoordinate.setText(l.getLatitude() + " | " + l.getLongitude() + " Rate: " + calculaVelocidadeMedia(Double.valueOf(distance), TimeUnit.MILLISECONDS.toSeconds(tempoEntreupdates)));
-
-                                        }
-                                    }
-                                });
-
-                    }
-
-                    @Override
-                    public void onConnectionSuspended(int i) {
-                        Log.i("LOG", "onConnectionSuspended(" + i + ")");
-
-                    }
-                })
-                .addApi(LocationServices.API)
-                .build();
-        mGoogleApiClient.connect();
-    }
-
-    public void sendLocalization(Location location){
-        PostLocalization postLocalization = new PostLocalization(new OnPostLocalization() {
-            @Override
-            public void onPostlocalizationSucess() {
-                Log.d("TEST", "Localização postada");
-
+    public void getLocation() {
+        String[] permissions = {Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION};
+        if (hasPermissions(MapsActivity.this, permissions)) {
+            GetQueueValues getQueueValues = new GetQueueValues(this);
+            GsonRequest<JsonObject> request = getQueueValues.getValues();
+            request.setRetryPolicy(new DefaultRetryPolicy(0, DefaultRetryPolicy.DEFAULT_MAX_RETRIES, DefaultRetryPolicy.DEFAULT_BACKOFF_MULT));
+            RequestQueueSingleton.getInstance(this).addToRequestQueue(request.setTag("dailyMenu"));
+        } else {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                requestPermissions(permissions, PERMISSION_ALL);
             }
+        }
+    }
 
-            @Override
-            public void onPostlocalizationError() {
-                Log.d("TEST", "Localização não foi postada");
-
+    public static boolean hasPermissions(Context context, String... permissions) {
+        if (android.os.Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && context != null && permissions != null) {
+            for (String permission : permissions) {
+                if (ActivityCompat.checkSelfPermission(context, permission) != PackageManager.PERMISSION_GRANTED) {
+                    return false;
+                }
             }
-        });
-        GsonPostRequest request = postLocalization.serverRequestString(String.valueOf(location.getLatitude()), String.valueOf(location.getLongitude()));
-        request.setRetryPolicy(new DefaultRetryPolicy(300, DefaultRetryPolicy.DEFAULT_MAX_RETRIES, DefaultRetryPolicy.DEFAULT_BACKOFF_MULT));
-        RequestQueueSingleton.getInstance(this).addToRequestQueue(request.setTag("dailyMenu"));
-
+        }
+        return true;
     }
 
     @Override
-    public void onConnected(@Nullable Bundle bundle) {
-
+    public void onRequestPermissionsResult(int requestCode,
+                                           @NonNull final String[] permissions, @NonNull int[] grantResults) {
+        switch (requestCode) {
+            case PERMISSION_ALL:
+                boolean permissionOk = true;
+                if (grantResults.length > 0) {
+                    for (int result : grantResults) {
+                        if (result != PackageManager.PERMISSION_GRANTED) {
+                            permissionOk = false;
+                        }
+                    }
+                }
+                if (permissionOk) {
+                    getLocation();
+                } else {
+                    break;
+                }
+        }
     }
 
-    @Override
-    public void onConnectionSuspended(int i) {
-        Log.i("LOG", "onConnectionSuspended(" + i + ")");
-    }
-    @Override
-    public void onConnectionFailed(ConnectionResult connectionResult) {
-        Log.i("LOG", "onConnectionFailed("+connectionResult+")");
-    }
-
-    public static double distance(Location StartP, Location EndP) {
-        double lat1 = StartP.getLatitude();
-        double lat2 = EndP.getLatitude();
-        double lon1 = StartP.getLongitude();
-        double lon2 = EndP.getLongitude();
-        double dLat = Math.toRadians(lat2-lat1);
-        double dLon = Math.toRadians(lon2-lon1);
-        double a = Math.sin(dLat/2) * Math.sin(dLat/2) + Math.cos(Math.toRadians(lat1)) * Math.cos(Math.toRadians(lat2)) * Math.sin(dLon/2) * Math.sin(dLon/2);
-        double c = 2 * Math.asin(Math.sqrt(a));
-        return 6366000 * c;
-    }
-
-    public double calculaVelocidadeMedia(double deslocamento, long tempoGasto) {
-        return deslocamento/tempoGasto;
-    }
-
-    private void getQueueValues() {
-        GetQueueValues getQueueValues = new GetQueueValues(this);
-        GsonRequest<JsonObject> request = getQueueValues.getValues();
-        request.setRetryPolicy(new DefaultRetryPolicy(0, DefaultRetryPolicy.DEFAULT_MAX_RETRIES, DefaultRetryPolicy.DEFAULT_BACKOFF_MULT));
-        RequestQueueSingleton.getInstance(this).addToRequestQueue(request.setTag("dailyMenu"));
-    }
 
     @Override
     public void OnGetQueueValues(JsonObject media) {
         Log.d("Teste", media.toString());
         this.latEmbdd = media.getAsJsonObject("ru").get("latitude").getAsDouble();
         this.logEmbdd = media.getAsJsonObject("ru").get("longitude").getAsDouble();
-        this.speepServ = media.getAsJsonObject("velocity").getAsDouble();
-        this.radius = media.getAsJsonObject("radius").getAsDouble();
-        this.beginQueueLat = media.getAsJsonObject("beginQueue").get("latitude").getAsDouble();
-        this.beginQueueLog = media.getAsJsonObject("beginQueue").get("longitude").getAsDouble();
+        this.speepServ = media.get("velocity").getAsDouble();
+        this.radius = media.get("radius").getAsDouble();
+        this.beginQueueLat = media.getAsJsonArray("beginQueue").get(0).getAsJsonObject().get("latitude").getAsDouble();
+        this.beginQueueLog = media.getAsJsonArray("beginQueue").get(0).getAsJsonObject().get("longitude").getAsDouble();
+        this.margin = media.get("margin").getAsDouble();
+        int interval = media.get("interval").getAsInt();
+
+        double latI = media.getAsJsonArray("insidePoints").get(0).getAsJsonObject().get("latitudei").getAsDouble();
+        double latF = media.getAsJsonArray("insidePoints").get(0).getAsJsonObject().get("latitudef").getAsDouble();
+        double logI = media.getAsJsonArray("insidePoints").get(0).getAsJsonObject().get("longitudei").getAsDouble();
+        double logF = media.getAsJsonArray("insidePoints").get(0).getAsJsonObject().get("longitudef").getAsDouble();
+
+        this.insidePoints.add(latI);
+        this.insidePoints.add(latF);
+        this.insidePoints.add(logI);
+        this.insidePoints.add(logF);
+
+
+        double[] insidePoints = new double[4];
+
+        insidePoints[0] = latI;
+        insidePoints[1] = latF;
+        insidePoints[2] = logI;
+        insidePoints[3] = logF;
+
+
+        Bundle bundle = new Bundle();
+        bundle.putDouble("speedServ", speepServ);
+        bundle.putDouble("radius", radius);
+        bundle.putDouble("margin", margin);
+        bundle.putDoubleArray("insidePoints", insidePoints);
+        bundle.putDouble("latCent", latEmbdd);
+        bundle.putDouble("logCent", logEmbdd);
+        bundle.putInt("interval", interval);
+
+
         Log.d("Teste", String.valueOf(latEmbdd));
         Log.d("Teste", String.valueOf(logEmbdd));
         Log.d("Teste", String.valueOf(speepServ));
         Log.d("Teste", String.valueOf(radius));
         Log.d("Teste", String.valueOf(beginQueueLat));
         Log.d("Teste", String.valueOf(beginQueueLog));
-        callConnectionOnce();
+        createAlarmToUpdateGPS(bundle);
     }
 
 
-    public static double distanceDoubleLocation(double lat, double log, Location EndP) {
-        double lat1 = lat;
-        double lat2 = EndP.getLatitude();
-        double lon1 = log;
-        double lon2 = EndP.getLongitude();
-        double dLat = Math.toRadians(lat2-lat1);
-        double dLon = Math.toRadians(lon2-lon1);
-        double a = Math.sin(dLat/2) * Math.sin(dLat/2) + Math.cos(Math.toRadians(lat1)) * Math.cos(Math.toRadians(lat2)) * Math.sin(dLon/2) * Math.sin(dLon/2);
-        double c = 2 * Math.asin(Math.sqrt(a));
-        return 6366000 * c;
-    }
+    public void createAlarmToUpdateGPS(Bundle bundle) {
+        Log.d("Teste", "oi");
 
+        int intervalServ = bundle.getInt("interval");
+        AlarmManager alarmMgr = (AlarmManager) getSystemService(Context.ALARM_SERVICE);
+
+        Intent intent = new Intent(MapsActivity.this, WakefulReceiver.class);
+        intent.putExtra("bundle", bundle);
+        boolean flag = (PendingIntent.getBroadcast(MapsActivity.this, 0,
+                intent, PendingIntent.FLAG_NO_CREATE) == null);
+
+        if (flag) {
+            PendingIntent alarmIntent = PendingIntent.getBroadcast(MapsActivity.this, 0,
+                    intent, PendingIntent.FLAG_UPDATE_CURRENT);
+
+            Calendar calendar = Calendar.getInstance();
+            calendar.setTimeInMillis(System.currentTimeMillis());
+
+            int intervalTimeMillis = 1000 * 60 * intervalServ;
+            alarmMgr.setRepeating(AlarmManager.RTC_WAKEUP,
+                    calendar.getTimeInMillis(), intervalTimeMillis,
+                    alarmIntent);
+        } else {
+            PendingIntent sender = PendingIntent.getBroadcast(MapsActivity.getAppContext(), 0, intent, PendingIntent.FLAG_CANCEL_CURRENT);
+            AlarmManager alarmManager = (AlarmManager) getSystemService(ALARM_SERVICE);
+            alarmManager.cancel(sender);
+            PendingIntent alarmIntent = PendingIntent.getBroadcast(MapsActivity.this, 0,
+                    intent, PendingIntent.FLAG_UPDATE_CURRENT);
+
+            Calendar calendar = Calendar.getInstance();
+            calendar.setTimeInMillis(System.currentTimeMillis());
+
+
+            int intervalTimeMillis = 1000 * 60 * intervalServ;
+            alarmMgr.setRepeating(AlarmManager.RTC_WAKEUP,
+                    calendar.getTimeInMillis(), intervalTimeMillis,
+                    alarmIntent);
+
+
+        }
+    }
+    
 }

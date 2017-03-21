@@ -7,5 +7,5 @@ import com.google.gson.JsonObject;
  */
 
 public interface OnPostSpeed {
-    void OnPostSpeed(String media);
+    void OnPostSpeed(double media);
 }
